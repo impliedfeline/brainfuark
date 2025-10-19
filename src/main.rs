@@ -1,14 +1,28 @@
+use std::error::Error;
+
+use anyhow::anyhow;
 use brainfuark::*;
+use log::{debug, error, info};
 
-fn main() {
-    let args: Vec<String> = std::env::args().collect();
-    let contents = std::fs::read_to_string(&args[1]).unwrap();
+fn main() -> Result<(), Box<dyn Error>> {
+    env_logger::init();
 
-    println!("Program file contents: {contents}");
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    if args.is_empty() {
+        error!("No command-line arguments provided");
+        Err(anyhow!("No command-line arguments provided, aborting"))?;
+    }
 
-    let program: Program = contents.parse().unwrap();
+    let path = args.iter().next().unwrap();
+    info!("Reading file: {path}");
 
-    println!("Parsed program: {program:#?}");
+    let contents = std::fs::read_to_string(path)?;
+    debug!("Program file contents: {contents}");
+
+    let program: Program = contents.parse()?;
+    debug!("Parsed program: {program:#?}");
 
     program.run(std::io::stdin(), &mut std::io::stdout());
+
+    Ok(())
 }

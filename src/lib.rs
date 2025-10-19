@@ -2,6 +2,9 @@ use std::collections::HashMap;
 use std::io::{Read, Write};
 use std::str::FromStr;
 
+use log::debug;
+use thiserror::Error;
+
 #[derive(Copy, Clone, Debug)]
 pub enum Instruction {
     MoveLeft,
@@ -21,8 +24,9 @@ impl Instruction {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum ParseError {
+    #[error("encountered unexpected character during parse")]
     UnexpectedCharacter,
 }
 
@@ -81,7 +85,7 @@ impl Program {
             tmp
         };
 
-        println!("Jump addresses: {jump_addr:#?}");
+        debug!("Jump addresses: {jump_addr:#?}");
 
         let mut instr_ptr: usize = 0;
         loop {
@@ -121,10 +125,6 @@ impl Program {
             instr_ptr += 1;
         }
     }
-}
-
-pub fn add(left: u64, right: u64) -> u64 {
-    left + right
 }
 
 #[cfg(test)]
