@@ -22,7 +22,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     let program: Program = contents.parse()?;
     debug!("Parsed program: {program:#?}");
 
-    program.run(std::io::stdin(), &mut std::io::stdout());
+    let mut data = [0u8; 30_000];
+    program.run(&mut data, 0, std::io::stdin(), &mut std::io::stdout());
 
     Ok(())
 }
