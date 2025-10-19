@@ -10,5 +10,5 @@ fn main() {
 
     println!("Parsed program: {program:#?}");
 
-    run(program);
+    program.run(std::io::stdin(), &mut std::io::stdout());
 }

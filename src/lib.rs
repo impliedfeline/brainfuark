@@ -1,14 +1,14 @@
 use std::collections::HashMap;
-use std::io;
+use std::io::{Read, Write};
 use std::str::FromStr;
 
-#[derive(Debug)]
+#[derive(Copy, Clone, Debug)]
 pub enum Instruction {
     MoveLeft,
     MoveRight,
     Increment,
     Decrement,
-    Print,
+    Write,
     Read,
     JumpLeft,
     JumpRight,
@@ -35,7 +35,7 @@ impl TryFrom<char> for Instruction {
             '>' => Ok(Instruction::MoveRight),
             '+' => Ok(Instruction::Increment),
             '-' => Ok(Instruction::Decrement),
-            '.' => Ok(Instruction::Print),
+            '.' => Ok(Instruction::Write),
             ',' => Ok(Instruction::Read),
             '[' => Ok(Instruction::JumpLeft),
             ']' => Ok(Instruction::JumpRight),
@@ -59,63 +59,67 @@ impl FromStr for Program {
     }
 }
 
-pub fn run(program: Program) {
-    let program = program.0;
-    let mut data: Vec<u8> = vec![0; 30_000];
-    let mut data_ptr: usize = 0;
-    let jump_addr: HashMap<usize, usize> = {
-        let mut tmp = HashMap::new();
-        let mut jump_stack: Vec<usize> = Vec::new();
-        for (i, instr) in program.iter().enumerate() {
-            match instr {
-                Instruction::JumpLeft => jump_stack.push(i),
-                Instruction::JumpRight => {
-                    let matching = jump_stack.pop().unwrap();
-                    tmp.insert(matching, i);
-                    tmp.insert(i, matching);
+impl Program {
+    pub fn run<T: Read, U: Write>(&self, mut input: T, output: &mut U) {
+        let program = &self.0;
+        let mut data: Vec<u8> = vec![0; 30_000];
+        let mut data_ptr: usize = 0;
+        let jump_addr: HashMap<usize, usize> = {
+            let mut tmp = HashMap::new();
+            let mut jump_stack: Vec<usize> = Vec::new();
+            for (i, instr) in program.iter().enumerate() {
+                match instr {
+                    Instruction::JumpLeft => jump_stack.push(i),
+                    Instruction::JumpRight => {
+                        let matching = jump_stack.pop().unwrap();
+                        tmp.insert(matching, i);
+                        tmp.insert(i, matching);
+                    }
+                    _ => continue,
                 }
-                _ => continue,
             }
-        }
-        tmp
-    };
-
-    println!("Jump addresses: {jump_addr:#?}");
-
-    let mut instr_ptr: usize = 0;
-    loop {
-        let instr = {
-            if program.len() <= instr_ptr {
-                break;
-            } else {
-                &program[instr_ptr]
-            }
+            tmp
         };
-        match instr {
-            Instruction::MoveLeft => data_ptr -= 1,
-            Instruction::MoveRight => data_ptr += 1,
-            Instruction::Increment => data[data_ptr] += 1,
-            Instruction::Decrement => data[data_ptr] -= 1,
-            Instruction::Print => print!("{}", data[data_ptr] as char),
-            Instruction::Read => {
-                let mut line = String::new();
-                io::stdin().read_line(&mut line).unwrap();
-                data[data_ptr] = line.bytes().next().unwrap();
-            }
-            Instruction::JumpLeft => {
-                if data[data_ptr] == 0 {
-                    instr_ptr = jump_addr[&instr_ptr];
-                    continue;
+
+        println!("Jump addresses: {jump_addr:#?}");
+
+        let mut instr_ptr: usize = 0;
+        loop {
+            let instr = {
+                if program.len() <= instr_ptr {
+                    break;
+                } else {
+                    &program[instr_ptr]
+                }
+            };
+            match instr {
+                Instruction::MoveLeft => data_ptr -= 1,
+                Instruction::MoveRight => data_ptr += 1,
+                Instruction::Increment => data[data_ptr] += 1,
+                Instruction::Decrement => data[data_ptr] -= 1,
+                Instruction::Write => {
+                    output.write(&[data[data_ptr]]).unwrap();
+                }
+                Instruction::Read => {
+                    let mut buffer = [0];
+                    input.read(&mut buffer).unwrap();
+                    data[data_ptr] = buffer[0];
+                }
+                Instruction::JumpLeft => {
+                    if data[data_ptr] == 0 {
+                        instr_ptr = jump_addr[&instr_ptr];
+                        continue;
+                    }
+                }
+                Instruction::JumpRight => {
+                    if data[data_ptr] != 0 {
+                        instr_ptr = jump_addr[&instr_ptr];
+                        continue;
+                    }
                 }
             }
-            Instruction::JumpRight => {
-                if data[data_ptr] != 0 {
-                    instr_ptr = jump_addr[&instr_ptr];
-                    continue;
-                }
-            }
+            instr_ptr += 1;
         }
-        instr_ptr += 1;
     }
 }
 
@@ -128,8 +132,28 @@ mod tests {
     use super::*;
 
     #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
+    fn read_write() {
+        let program = Program(vec![Instruction::Read, Instruction::Write]);
+        let input = [b'a'];
+        let mut output = Vec::new();
+        program.run(input.as_slice(), &mut output);
+
+        assert_eq!(output, input);
+    }
+
+    #[test]
+    fn read_write_longer() {
+        let program = Program(
+            [Instruction::Read, Instruction::Write]
+                .into_iter()
+                .cycle()
+                .take(2 * 6)
+                .collect(),
+        );
+        let input = [b'a', b'b', b'c', b'1', b'2', b'3'];
+        let mut output = Vec::new();
+        program.run(input.as_slice(), &mut output);
+
+        assert_eq!(output, input);
     }
 }
