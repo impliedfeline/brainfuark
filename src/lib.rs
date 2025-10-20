@@ -1,8 +1,6 @@
-use std::collections::HashMap;
 use std::io::{Read, Write};
 use std::str::FromStr;
 
-use log::debug;
 use thiserror::Error;
 
 #[derive(Copy, Clone, Debug)]
@@ -13,8 +11,8 @@ pub enum Instruction {
     Decrement,
     Write,
     Read,
-    JumpLeft,
-    JumpRight,
+    JumpLeft(usize),
+    JumpRight(usize),
 }
 
 impl Instruction {
@@ -30,24 +28,6 @@ pub enum ParseError {
     UnexpectedCharacter,
 }
 
-impl TryFrom<char> for Instruction {
-    type Error = ParseError;
-
-    fn try_from(value: char) -> Result<Self, Self::Error> {
-        match value {
-            '<' => Ok(Instruction::MoveLeft),
-            '>' => Ok(Instruction::MoveRight),
-            '+' => Ok(Instruction::Increment),
-            '-' => Ok(Instruction::Decrement),
-            '.' => Ok(Instruction::Write),
-            ',' => Ok(Instruction::Read),
-            '[' => Ok(Instruction::JumpLeft),
-            ']' => Ok(Instruction::JumpRight),
-            _ => Err(ParseError::UnexpectedCharacter),
-        }
-    }
-}
-
 #[derive(Debug)]
 pub struct Program(pub Vec<Instruction>);
 
@@ -55,11 +35,34 @@ impl FromStr for Program {
     type Err = ParseError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        s.chars()
-            .filter(|c| Instruction::is_token(*c))
-            .map(Instruction::try_from)
-            .collect::<Result<Vec<Instruction>, Self::Err>>()
-            .map(Program)
+        let mut prog = Vec::new();
+        let mut jump_stack: Vec<usize> = Vec::new();
+        for (i, chr) in s.chars().filter(|c| Instruction::is_token(*c)).enumerate() {
+            let token = match chr {
+                '<' => Instruction::MoveLeft,
+                '>' => Instruction::MoveRight,
+                '+' => Instruction::Increment,
+                '-' => Instruction::Decrement,
+                '.' => Instruction::Write,
+                ',' => Instruction::Read,
+                '[' => {
+                    // TODO: Error handling for unbalanced parens
+                    jump_stack.push(i);
+                    Instruction::JumpLeft(usize::MAX)
+                }
+                ']' => {
+                    // TODO: Error handling for unbalanced parens
+                    let jump_addr = jump_stack.pop().unwrap();
+                    if let Instruction::JumpLeft(_) = prog[jump_addr] {
+                        prog[jump_addr] = Instruction::JumpLeft(i)
+                    }
+                    Instruction::JumpRight(jump_addr)
+                }
+                _ => return Err(Self::Err::UnexpectedCharacter),
+            };
+            prog.push(token);
+        }
+        Ok(Self(prog))
     }
 }
 
@@ -72,25 +75,6 @@ impl Program {
         output: &mut U,
     ) -> usize {
         let program = &self.0;
-        let jump_addr: HashMap<usize, usize> = {
-            let mut tmp = HashMap::new();
-            let mut jump_stack: Vec<usize> = Vec::new();
-            for (i, instr) in program.iter().enumerate() {
-                match instr {
-                    Instruction::JumpLeft => jump_stack.push(i),
-                    Instruction::JumpRight => {
-                        let matching = jump_stack.pop().unwrap();
-                        tmp.insert(matching, i);
-                        tmp.insert(i, matching);
-                    }
-                    _ => continue,
-                }
-            }
-            tmp
-        };
-
-        debug!("Jump addresses: {jump_addr:#?}");
-
         let mut instr_ptr: usize = 0;
         loop {
             let instr = {
@@ -113,15 +97,15 @@ impl Program {
                     input.read_exact(&mut buffer).unwrap();
                     data[data_ptr] = buffer[0];
                 }
-                Instruction::JumpLeft => {
+                Instruction::JumpLeft(jump_addr) => {
                     if data[data_ptr] == 0 {
-                        instr_ptr = jump_addr[&instr_ptr];
+                        instr_ptr = *jump_addr;
                         continue;
                     }
                 }
-                Instruction::JumpRight => {
+                Instruction::JumpRight(jump_addr) => {
                     if data[data_ptr] != 0 {
-                        instr_ptr = jump_addr[&instr_ptr];
+                        instr_ptr = *jump_addr;
                         continue;
                     }
                 }
