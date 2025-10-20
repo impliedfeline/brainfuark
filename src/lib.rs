@@ -18,7 +18,7 @@ pub enum Instruction {
 }
 
 impl Instruction {
-    fn is_token(c: &char) -> bool {
+    fn is_token(c: char) -> bool {
         let token_chars = ['<', '>', '+', '-', '.', ',', '[', ']'];
         token_chars.contains(&c)
     }
@@ -56,7 +56,7 @@ impl FromStr for Program {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         s.chars()
-            .filter(Instruction::is_token)
+            .filter(|c| Instruction::is_token(*c))
             .map(Instruction::try_from)
             .collect::<Result<Vec<Instruction>, Self::Err>>()
             .map(Program)
@@ -106,11 +106,11 @@ impl Program {
                 Instruction::Increment => data[data_ptr] += 1,
                 Instruction::Decrement => data[data_ptr] -= 1,
                 Instruction::Write => {
-                    output.write(&[data[data_ptr]]).unwrap();
+                    output.write_all(&[data[data_ptr]]).unwrap();
                 }
                 Instruction::Read => {
                     let mut buffer = [0];
-                    input.read(&mut buffer).unwrap();
+                    input.read_exact(&mut buffer).unwrap();
                     data[data_ptr] = buffer[0];
                 }
                 Instruction::JumpLeft => {

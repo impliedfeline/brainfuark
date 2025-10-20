@@ -13,7 +13,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         Err(anyhow!("No command-line arguments provided, aborting"))?;
     }
 
-    let path = args.iter().next().unwrap();
+    let path = args.first().unwrap();
     info!("Reading file: {path}");
 
     let contents = std::fs::read_to_string(path)?;

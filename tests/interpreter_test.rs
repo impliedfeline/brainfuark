@@ -1,5 +1,5 @@
-use std::iter::repeat;
 use brainfuark::*;
+use std::iter::repeat_n;
 
 mod common;
 
@@ -14,7 +14,7 @@ fn increment_works() {
 #[test]
 #[should_panic]
 fn increment_over_u8_panics() {
-    let program = Program(repeat(Instruction::Increment).take(256).collect());
+    let program = Program(repeat_n(Instruction::Increment, 256).collect());
     let mut data = [0u8];
     program.run(&mut data, 0, [].as_slice(), &mut vec![]);
 }
