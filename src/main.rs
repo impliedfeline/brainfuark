@@ -1,7 +1,7 @@
 use std::error::Error;
 
 use anyhow::anyhow;
-use brainfuark::*;
+use brainfuark::{Program, ProgramState};
 use log::{debug, error, info};
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -22,8 +22,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     let program: Program = contents.parse()?;
     debug!("Parsed program: {program:#?}");
 
-    let mut data = [0u8; 30_000];
-    program.run(&mut data, 0, std::io::stdin(), &mut std::io::stdout());
+    let mut state: ProgramState<30_000> = ProgramState::default();
+    state.run(&program, &mut std::io::stdin(), &mut std::io::stdout());
 
     Ok(())
 }

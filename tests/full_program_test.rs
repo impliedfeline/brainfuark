@@ -1,3 +1,4 @@
+#![allow(clippy::pedantic)]
 use brainfuark::*;
 
 mod common;
@@ -7,8 +8,11 @@ fn hello_world_works() {
     let program: Program = r"
 ++++++++[>++++[>++>+++>+++>+<<<<-]>+>+>->>+[<]<-]>>.>---.+++++++..+++.>>.<-.<.+++.------.--------.>>+.>++."
     .parse().unwrap();
-    let mut data = common::init_data();
+    let mut state = ProgramState {
+        data: [0u8; 30_000],
+        ..ProgramState::default()
+    };
     let mut output = Vec::new();
-    program.run(&mut data, 0, [].as_slice(), &mut output);
+    state.run(&program, &mut [].as_ref(), &mut output);
     assert_eq!(output, "Hello World!\n".as_bytes());
 }
