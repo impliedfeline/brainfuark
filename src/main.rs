@@ -1,7 +1,7 @@
 use std::error::Error;
 
 use anyhow::anyhow;
-use brainfuark::{Program, ProgramState};
+use brainfuark::{optimized::OProgram, program::Program, state::ProgramState};
 use log::{debug, error, info};
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -24,6 +24,13 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let mut state: ProgramState<30_000> = ProgramState::default();
     state.run(&program, &mut std::io::stdin(), &mut std::io::stdout());
+    debug!("hello?");
+
+    let oprogram: OProgram = OProgram::parse(&mut program.0.into_iter().peekable()).improve();
+    debug!("Optimized program: {oprogram:#?}");
+
+    let mut state: ProgramState<30_000> = ProgramState::default();
+    oprogram.run(&mut state, &mut std::io::stdin(), &mut std::io::stdout());
 
     Ok(())
 }
